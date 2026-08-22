@@ -1,0 +1,23 @@
+#!/usr/bin/env node
+const { spawnSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const config = require('../src/config/config');
+const home = path.resolve(config.forge.minecraftHome);
+const client = path.resolve(config.forge.clientHome);
+const mods = path.resolve(config.forge.modDirectory);
+const jars = fs.existsSync(mods) ? fs.readdirSync(mods).filter((name) => name.endsWith('.jar')).sort() : [];
+const java = spawnSync(config.forge.javaPath, ['-version'], { encoding: 'utf8' });
+const available = (name) => { try { require.resolve(name); return true; } catch { return false; } };
+console.log(`Node version: ${process.version}`);
+console.log(`Java version: ${java.status === 0 ? (java.stderr || java.stdout).trim().split('\n')[0] : 'JAVA_NOT_FOUND'}`);
+console.log(`Minecraft client installed: ${fs.existsSync(path.join(client, 'version.json'))}`);
+console.log(`Minecraft version: ${config.minecraft.version}`);
+console.log(`Forge installed: ${fs.existsSync(config.forge.forgeHome)}`);
+console.log(`Forge version: ${config.forge.forgeVersion || 'NOT_CONFIGURED'}`);
+console.log(`Mods directory: ${mods} (${fs.existsSync(mods) ? 'present' : 'missing'})`);
+console.log(`Loaded mods (${jars.length}): ${jars.join(', ') || 'none'}`);
+console.log(`Canvas available: ${available('canvas')}`);
+console.log(`Prismarine Viewer available: ${available('prismarine-viewer')}`);
+console.log(`Forge client command: ${config.forge.clientCommand}`);
+console.log(`Server configuration status: host=${config.minecraft.host ? 'configured' : 'missing'}, port=${config.minecraft.port ? 'configured' : 'missing'}, loader=${config.minecraft.loader}`);

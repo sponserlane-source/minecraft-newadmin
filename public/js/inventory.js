@@ -1,0 +1,2 @@
+import { escapeText } from './ui.js';
+export function renderInventory(items){const root=document.getElementById('inventoryList');if(!items?.length){root.innerHTML='<p class="muted">Inventory is empty or bot is offline.</p>';return;}root.innerHTML=items.map(i=>`<div class="inv-item"><strong>${escapeText(i.displayName||i.name)}</strong><br>Slot ${i.slot} • Count ${i.count}${i.durability!==null?` • Durability used ${i.durability}`:''}</div>`).join('');}

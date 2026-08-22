@@ -1,0 +1,232 @@
+:root {
+  color-scheme: dark;
+  --bg: #090d14;
+  --panel: #111827;
+  --panel-2: #0f1624;
+  --text: #e5edf8;
+  --muted: #8ea0b8;
+  --accent: #3ddc97;
+  --danger: #ff4d5e;
+  --border: #223047;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: linear-gradient(180deg, #0b1020, #080b10);
+  color: var(--text);
+  font-family: Inter, system-ui, Arial, sans-serif;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(12, 18, 30, 0.94);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+h1, h2 { margin: 0; }
+h1 { font-size: 20px; }
+h2 { font-size: 16px; margin-bottom: 10px; }
+
+.dot {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #667;
+  margin: 0 8px;
+}
+
+.dot.online {
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent);
+}
+
+.actions, .camera, .mods, .pvp-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+button, input, select {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #172033;
+  color: var(--text);
+  padding: 10px 14px;
+}
+
+button {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+button:hover { border-color: #3f567c; }
+
+main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 330px;
+  grid-template-areas:
+    'connect info'
+    'pov info'
+    'controls pvp'
+    'chat inventory';
+  gap: 16px;
+  padding: 16px;
+}
+
+.panel, .pov-panel {
+  background: rgba(17, 24, 39, 0.86);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+}
+
+.connect-panel { grid-area: connect; }
+.pov-panel {
+  grid-area: pov;
+  min-height: 62vh;
+  display: flex;
+  flex-direction: column;
+}
+.info { grid-area: info; }
+.controls { grid-area: controls; }
+.pvp { grid-area: pvp; }
+.chat { grid-area: chat; }
+.inventory { grid-area: inventory; }
+
+.connect-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.notice, .muted { color: var(--muted); }
+.notice { grid-column: 1 / -1; margin: 0; }
+
+.pov-head {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+#povFrame {
+  width: 100%;
+  flex: 1;
+  min-height: 520px;
+  border: 0;
+  border-radius: 14px;
+  background: #05070a;
+}
+
+.camera, .mods { margin-top: 10px; }
+
+dl {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 12px;
+}
+
+dt { color: var(--muted); }
+dd { margin: 0; }
+
+.wasd {
+  display: grid;
+  grid-template-columns: 70px 70px 70px;
+  gap: 8px;
+  width: max-content;
+}
+
+.wasd [data-control='forward'] { grid-column: 2; }
+.wasd [data-control='left'] { grid-column: 1; }
+.wasd [data-control='back'] { grid-column: 2; }
+.wasd [data-control='right'] { grid-column: 3; grid-row: 2; }
+
+#stopBtn {
+  margin-top: 12px;
+  background: linear-gradient(180deg, #ff5164, #b8172a);
+  font-size: 18px;
+  width: 100%;
+  padding: 16px;
+}
+
+#pvpAttackBtn { background: #4d2430; }
+
+#chatHistory {
+  height: 220px;
+  overflow: auto;
+  background: #0a0f19;
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.chat-line { margin: 6px 0; color: #cdd7e6; }
+.chat-line.sent { color: #8ee6b8; }
+.chat-line.system { color: #ffd166; }
+
+#chatForm {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+#chatInput { flex: 1; }
+
+.inv-item {
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+  color: #cbd5e1;
+}
+
+.collapse {
+  display: none;
+  width: 100%;
+  text-align: left;
+}
+
+@media (max-width: 980px) {
+  .topbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .actions { width: 100%; }
+
+  main {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'connect'
+      'pov'
+      'controls'
+      'pvp'
+      'info'
+      'inventory'
+      'chat';
+    padding: 8px;
+  }
+
+  .connect-grid { grid-template-columns: 1fr 1fr; }
+  .pov-panel { min-height: 58vh; }
+  #povFrame { min-height: 430px; }
+  .collapse { display: block; }
+  .collapse + div.collapsed { display: none; }
+  .wasd { margin: auto; }
+  .mods button, .wasd button { min-height: 56px; touch-action: none; }
+}

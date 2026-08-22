@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Minecraft Bot Dashboard</title>
+    <link rel="stylesheet" href="/css/style.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>Minecraft Bot</h1>
+        <span id="statusDot" class="dot"></span>
+        <span id="statusText">OFFLINE</span>
+      </div>
+      <div class="actions">
+        <input id="password" type="password" placeholder="Dashboard password" value="12345" autocomplete="current-password">
+        <button id="connectBtn">Connect</button>
+        <button id="disconnectBtn">Disconnect</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="panel connect-panel">
+        <h2>Server connection</h2>
+        <form id="connectForm" class="connect-grid">
+          <label>Server IP / Host<input id="serverHost" name="host" required placeholder="localhost"></label>
+          <label>Port<input id="serverPort" name="port" required inputmode="numeric" placeholder="25565"></label>
+          <label>Bot name<input id="botUsernameInput" name="username" required maxlength="16" placeholder="MyBot"></label>
+          <label>Version<input id="mcVersion" name="version" required placeholder="1.20.4"></label>
+          <label>Auth<select id="authMode" name="auth"><option value="offline">offline</option><option value="microsoft">microsoft</option><option value="mojang">mojang</option></select></label>
+          <label>Loader<select id="loader" name="loader"><option value="vanilla">vanilla</option><option value="forge">forge</option></select></label>
+          <label>Forge version<input id="forgeVersion" name="forgeVersion" placeholder="47.3.0"></label>
+          <label>Mod directory<input id="modDirectory" name="modDirectory" placeholder="minecraft/mods"></label>
+          <p id="deployNotice" class="notice"></p>
+        </form>
+      </section>
+
+      <section class="pov-panel">
+        <div class="pov-head">
+          <strong>Bot POV</strong>
+          <span id="viewerHint">Prismarine renderer starts after bot spawn</span>
+        </div>
+        <iframe id="povFrame" title="Minecraft bot POV"></iframe>
+        <div class="camera">
+          <button data-look="left">Look Left</button>
+          <button data-look="up">Look Up</button>
+          <button data-look="center">Center</button>
+          <button data-look="down">Look Down</button>
+          <button data-look="right">Look Right</button>
+          <label>Sensitivity <input id="sensitivity" type="range" min="0.001" max="0.01" step="0.001" value="0.004"></label>
+        </div>
+      </section>
+
+      <aside class="panel info">
+        <button class="collapse" data-target="infoBody">Bot information</button>
+        <div id="infoBody">
+          <dl>
+            <dt>Bot</dt><dd id="botName">—</dd>
+            <dt>Status</dt><dd id="botState">offline</dd>
+            <dt>Server</dt><dd id="serverSummary">—</dd>
+            <dt>Health</dt><dd id="health">0 / 20</dd>
+            <dt>Food</dt><dd id="food">0 / 20</dd>
+            <dt>Position</dt><dd id="position">0, 0, 0</dd>
+            <dt>Yaw / Pitch</dt><dd id="angles">0 / 0</dd>
+            <dt>Dimension</dt><dd id="dimension">—</dd>
+            <dt>Game mode</dt><dd id="gameMode">—</dd>
+            <dt>Ping</dt><dd id="ping">—</dd>
+          </dl>
+        </div>
+      </aside>
+
+      <section class="panel controls">
+        <h2>Controls</h2>
+        <div class="wasd">
+          <button data-control="forward">W</button>
+          <button data-control="left">A</button>
+          <button data-control="back">S</button>
+          <button data-control="right">D</button>
+        </div>
+        <div class="mods">
+          <button data-control="jump">SPACE Jump</button>
+          <button data-control="sneak">SHIFT Sneak</button>
+          <button data-control="sprint">CTRL Sprint</button>
+        </div>
+        <button id="stopBtn">STOP EVERYTHING</button>
+      </section>
+
+      <section class="panel pvp">
+        <h2>PvP target lock</h2>
+        <p class="muted">Locks the bot's camera onto a nearby player. Attacks are manual and range-limited.</p>
+        <div class="pvp-row">
+          <select id="pvpTarget"><option value="">Nearest player</option></select>
+          <button id="refreshTargetsBtn">Refresh</button>
+          <button id="pvpLockBtn">Lock PvP</button>
+          <button id="pvpAttackBtn">Attack Once</button>
+        </div>
+        <p id="pvpStatus">PvP lock: off</p>
+      </section>
+
+      <section class="panel chat">
+        <button class="collapse" data-target="chatBody">Chat</button>
+        <div id="chatBody">
+          <div id="chatHistory"></div>
+          <form id="chatForm">
+            <input id="chatInput" maxlength="256" autocomplete="off" placeholder="Type message">
+            <button>Send</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="panel inventory">
+        <h2>Inventory</h2>
+        <div id="inventoryList"></div>
+      </section>
+    </main>
+
+    <script type="module" src="/js/app.js"></script>
+  </body>
+</html>
