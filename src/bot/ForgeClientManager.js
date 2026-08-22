@@ -47,7 +47,8 @@ class ForgeClientManager extends EventEmitter {
   async start(profile) {
     if (this.process) return this.status;
     const forge = { ...this.config, forgeVersion: profile.forgeVersion || this.config.forgeVersion, modDirectory: profile.modDirectory || this.config.modDirectory };
-    if (profile.version !== '1.20.1') {
+    const minecraftVersion = profile.minecraftVersion || profile.version;
+    if (minecraftVersion !== '1.20.1') {
       this.emitStatus('ERROR', { diagnostic: 'MINECRAFT_VERSION_MISMATCH' });
       return this.status;
     }
@@ -59,7 +60,7 @@ class ForgeClientManager extends EventEmitter {
       this.emitStatus('ERROR', { diagnostic: 'AUTHENTICATION_FAILED', message: 'Forge profiles in this deployment are restricted to offline-mode authentication.' });
       return this.status;
     }
-    this.emitStatus('STARTING', { diagnostic: null, minecraftVersion: profile.version, forgeVersion: forge.forgeVersion });
+    this.emitStatus('STARTING', { diagnostic: null, minecraftVersion, forgeVersion: forge.forgeVersion });
     const java = await this.verifyJava();
     if (!java.ok) {
       this.emitStatus('ERROR', { diagnostic: 'JAVA_NOT_FOUND', message: 'Java 17 is required for Forge 1.20.1.' });
@@ -71,7 +72,7 @@ class ForgeClientManager extends EventEmitter {
       this.emitStatus('ERROR', { diagnostic: 'FORGE_CLIENT_RUNTIME_MISSING', message: `Forge launcher script not found: ${this.config.clientCommand}` });
       return this.status;
     }
-    const environment = { ...process.env, MINECRAFT_HOST: profile.host, MINECRAFT_PORT: String(profile.port), MINECRAFT_VERSION: profile.version, FORGE_VERSION: forge.forgeVersion, MOD_DIRECTORY: path.resolve(forge.modDirectory), BOT_USERNAME: profile.botUsername || profile.username, MINECRAFT_AUTH: profile.auth || 'offline' };
+    const environment = { ...process.env, MINECRAFT_HOST: profile.host, MINECRAFT_PORT: String(profile.port), MINECRAFT_VERSION: minecraftVersion, FORGE_VERSION: forge.forgeVersion, MOD_DIRECTORY: path.resolve(forge.modDirectory), BOT_USERNAME: profile.botUsername || profile.username, MINECRAFT_AUTH: profile.auth || 'offline' };
     this.emitStatus('CONNECTING');
     this.process = spawn(this.config.clientCommand, [], { env: environment, stdio: ['pipe', 'pipe', 'pipe'] });
     const consume = (chunk) => this.consumeOutput(chunk.toString());
@@ -89,14 +90,14 @@ class ForgeClientManager extends EventEmitter {
   consumeOutput(text) {
     const diagnostic = diagnose(text);
     if (diagnostic) this.emitStatus('KICKED', { diagnostic, kickMessage: text.trim() });
-    else if (/forge.*handshake|handshake.*forge/i.test(text)) this.emitStatus('CONNECTING');
+    else if (/forge.*handshake|handshake.*forge/i.test(text)) this.emitStatus('FORGE_HANDSHAKE');
     else if (/joining world|loading terrain/i.test(text)) this.emitStatus('SPAWNED');
     else if (/joined the game|connection established|forge_client_connected/i.test(text)) this.emitStatus('CONNECTED');
     this.emit('log', text.trim());
   }
 
   stop() { if (!this.process) return this.emitStatus('OFFLINE'); this.emitStatus('STOPPING'); this.process.kill('SIGTERM'); }
-  restart(profile) { this.stop(profile); return this.start(profile); }
+  async restart(profile) { this.stop(); await new Promise((resolve) => setTimeout(resolve, 150)); return this.start(profile); }
   getStatus() { return { ...this.status }; }
   getProcess() { return this.process; }
 
@@ -109,6 +110,7 @@ class ForgeClientManager extends EventEmitter {
   sendChat(message) { return this.sendCommand({ type: 'chat', message }); }
   move(action, pressed) { return this.sendCommand({ type: 'move', action, pressed: Boolean(pressed) }); }
   look(yaw, pitch) { return this.sendCommand({ type: 'look', yaw, pitch }); }
+  lookRelative(dx, dy) { return this.sendCommand({ type: 'look', dx, dy, relative: true }); }
   jump(pressed) { return this.sendCommand({ type: 'jump', pressed: Boolean(pressed) }); }
   attack() { return this.sendCommand({ type: 'attack' }); }
   useItem() { return this.sendCommand({ type: 'useItem' }); }

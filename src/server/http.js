@@ -2,11 +2,11 @@ const express = require('express');
 const path = require('path');
 const http = require('http');
 const createRoutes = require('./routes');
-function createHttpServer(config, botManager, viewer) {
+function createHttpServer(config, botManager, viewer, profiles) {
 	const app = express();
 	app.disable('x-powered-by');
 	app.use(express.json({ limit: '32kb' }));
-	app.use(createRoutes(config, botManager));
+	app.use(createRoutes(config, botManager, profiles));
 	app.use((req, res, next) => {
 		if (req.url === '/pov' || req.url.startsWith('/pov/')) return viewer.proxyRequest(req, res);
 		next();

@@ -82,6 +82,19 @@ function validateConnectOptions(input = {}) {
   return errors.length ? { ok: false, error: errors.join(' ') } : { ok: true, options };
 }
 
+function validateProfile(input = {}) {
+  const result = validateConnectOptions({
+    host: input.host, port: input.port, username: input.botUsername, version: input.minecraftVersion,
+    loader: input.loader, forgeVersion: input.forgeVersion
+  });
+  const name = String(input.name || '').trim();
+  if (!name || name.length > 80) return { ok: false, error: 'Profile name must be 1-80 characters.' };
+  if (!result.ok) return result;
+  const reconnectDelay = Number(input.reconnectDelay ?? 5000);
+  if (![5000, 10000, 20000, 30000, 60000].includes(reconnectDelay)) return { ok: false, error: 'Reconnect delay must be 5, 10, 20, 30, or 60 seconds.' };
+  return { ok: true, profile: { name, host: result.options.host, port: result.options.port, minecraftVersion: result.options.version, loader: result.options.loader || 'vanilla', forgeVersion: result.options.forgeVersion || '', botUsername: result.options.username, autoReconnect: Boolean(input.autoReconnect), reconnectDelay, modProfile: String(input.modProfile || 'default').trim() || 'default', displayName: String(input.displayName || '').trim() } };
+}
+
 function validateWsMessage(message) {
   if (!message || typeof message !== 'object' || !allowedTypes.has(message.type)) {
     return { ok: false, error: 'Unknown or missing message type.' };
@@ -130,5 +143,6 @@ module.exports = {
   allowedControls,
   parseJson,
   validateConnectOptions,
+  validateProfile,
   validateWsMessage
 };

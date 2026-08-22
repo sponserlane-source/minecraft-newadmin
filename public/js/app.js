@@ -67,6 +67,7 @@ setupControls(socket);
 setupPov(state, socket);
 setupPvp(socket, state);
 setupCollapsibles();
+document.getElementById('openFullscreen').addEventListener('click', () => window.open(state.config.viewerUrl || `${location.protocol}//${location.hostname}:${state.config.viewerPort || 3001}`, '_blank', 'noopener'));
 
 async function loadConfig() {
   const response = await fetch('/api/config');

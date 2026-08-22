@@ -1,8 +1,8 @@
 const express = require('express');
 const { buildStatus } = require('../bot/status');
-const { validateConnectOptions } = require('../utils/validation');
+const { validateConnectOptions, validateProfile } = require('../utils/validation');
 
-function createRoutes(config, botManager) {
+function createRoutes(config, botManager, profiles) {
   const router = express.Router();
 
   const requireAuth = (req, res, next) => {
@@ -27,8 +27,18 @@ function createRoutes(config, botManager) {
     loader: config.minecraft.loader,
     forgeVersion: config.minecraft.forgeVersion,
     modDirectory: config.minecraft.modDirectory,
-    authRequired: Boolean(config.web.password)
+    authRequired: Boolean(config.web.password), viewerUrl: config.viewer.publicUrl || null, viewerPort: config.viewer.port
   }));
+
+  router.get('/api/servers', requireAuth, (req, res) => res.json({ selectedId: profiles.selected()?.id || null, servers: profiles.list() }));
+  router.post('/api/servers', requireAuth, (req, res) => { const valid = validateProfile(req.body || {}); if (!valid.ok) return res.status(400).json({ error: valid.error }); return res.status(201).json(profiles.create(valid.profile)); });
+  router.put('/api/servers/:id', requireAuth, (req, res) => { const valid = validateProfile(req.body || {}); if (!valid.ok) return res.status(400).json({ error: valid.error }); const profile = profiles.update(req.params.id, valid.profile); return profile ? res.json(profile) : res.status(404).json({ error: 'Server profile not found.' }); });
+  router.delete('/api/servers/:id', requireAuth, (req, res) => { try { if (!profiles.delete(req.params.id)) return res.status(404).json({ error: 'Server profile not found.' }); return res.status(204).end(); } catch (error) { return res.status(400).json({ error: error.message }); } });
+  router.post('/api/servers/:id/select', requireAuth, (req, res) => { const profile = profiles.select(req.params.id); if (!profile) return res.status(404).json({ error: 'Server profile not found.' }); botManager.disconnect(); return res.json(profile); });
+  const connectProfile = (req, res) => { const profile = profiles.get(req.params.id); if (!profile) return res.status(404).json({ error: 'Server profile not found.' }); profiles.select(profile.id); botManager.disconnect(); botManager.connect({ ...profile, version: profile.minecraftVersion, username: profile.botUsername, auth: 'offline' }); return res.json({ ok: true, profile }); };
+  router.post('/api/servers/:id/connect', requireAuth, connectProfile);
+  router.post('/api/servers/:id/disconnect', requireAuth, (req, res) => { botManager.disconnect(); res.json({ ok: true }); });
+  router.post('/api/servers/:id/reconnect', requireAuth, connectProfile);
 
   router.get('/api/forge/status', requireAuth, (req, res) => res.json(botManager.forge.getStatus()));
 

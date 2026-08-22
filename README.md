@@ -54,7 +54,7 @@ JAVA_PATH=java
 MAX_RECONNECT_ATTEMPTS=5
 # Optional override; defaults to scripts/start-forge-client.sh.
 # FORGE_CLIENT_COMMAND=/app/scripts/start-forge-client.sh
-MINECRAFT_CLIENT_HOME=minecraft/client
+MINECRAFT_CLIENT_HOME=minecraft
 MINECRAFT_CLIENT_LAUNCHER=minecraft/client/start.sh
 ```
 
@@ -68,13 +68,25 @@ Use `MINECRAFT_AUTH=microsoft` only when your server requires Microsoft authenti
 - `npm run dev` starts the server with nodemon.
 - `npm run check` performs JavaScript syntax checks.
 
-Open `http://localhost:3000`, enter the dashboard password, type the Minecraft server IP/host, port, bot name, version, and auth mode, then click **Connect**. The Prismarine POV is proxied through the dashboard server, so only `WEB_PORT` needs to be public.
+Open `http://localhost:3000`, enter the dashboard password, type the Minecraft server IP/host, port, bot name, version, and auth mode, then click **Connect**. The embedded Prismarine POV is proxied through the dashboard; the separate fullscreen viewer uses `VIEWER_PORT`.
 
 ## Railway deployment
 
-Deploy using the included Dockerfile and Railway's start command `npm start`. The image contains Node 20, Java 17, and Canvas build/runtime libraries. The app uses Railway’s injected `PORT` automatically; set `WEB_PORT` only when you need to override it. Keep `VIEWER_PORT` internal; the dashboard forwards the POV and its WebSocket traffic through the web service port.
+Deploy using the included Dockerfile and Railway's start command `npm start`. The image contains Node 20, Java 17, and Canvas build/runtime libraries. The dashboard binds to Railway’s injected `PORT` (or `WEB_PORT`) and the fullscreen viewer independently binds to `VIEWER_PORT` (default `3001`) on `0.0.0.0`. Configure a second Railway public TCP/HTTP service for `VIEWER_PORT`; Railway does not expose it merely because the environment variable is set. Set `VIEWER_URL` to that public viewer URL so the dashboard's **Open Fullscreen POV** button works behind Railway routing.
 
-For a Forge profile, deploy the compatible client mod JARs (do not download unknown mods) to `minecraft/mods`, install the real client runtime and its compatible bridge under `minecraft/client`, set `FORGE_VERSION` to the server-compatible 47.x build, and run `npm run install:forge` during image/deployment preparation. The dashboard always launches `scripts/start-forge-client.sh` by default. Run `npm run diagnose` before deployment. The dashboard never returns authentication credentials or runner environment variables.
+For a Forge profile, first run `MINECRAFT_VERSION=1.20.1 npm run install:minecraft-runtime`. It resolves the official Mojang version manifest and downloads its metadata, client JAR, libraries, and assets into `minecraft`; it must only be used by a licensed Java Edition account holder. Then set the selected profile's Forge 47.x version and run `FORGE_VERSION=47.3.0 npm run install:forge`, which invokes Forge's official installer. Place only the server-required, compatible client-mod JARs in `minecraft/mods` (they are deliberately not downloaded by this project). Finally install a genuine deployment-owned client control/stream bridge at `minecraft/client/start.sh`. The launcher validates every runtime component and reports `FORGE_POV_UNAVAILABLE` rather than fabricating a Java-client video stream. Run `npm run diagnose` before deployment.
+
+Server profiles are persisted in `data/server-profiles.json` (set `PROFILE_STORE` to persistent Railway storage). Their Minecraft username is separate from their optional dashboard display name. Use `GET/POST /api/servers`, `PUT/DELETE /api/servers/:id`, `POST /api/servers/:id/select`, and `POST /api/servers/:id/{connect,disconnect,reconnect}` to manage them; no server address is embedded in source code.
+
+### Exact deployment checklist
+
+1. Add a persistent Railway volume and set `PROFILE_STORE` and `MINECRAFT_HOME` inside it if profiles/runtime must survive deploys.
+2. Set `PORT`, `VIEWER_PORT`, `VIEWER_URL`, `DASHBOARD_PASSWORD`, and `FORGE_VERSION`; expose both `PORT` and `VIEWER_PORT` in Railway networking.
+3. During image preparation run `npm ci`, `npm run install:minecraft-runtime`, and `npm run install:forge` with the desired Forge version.
+4. Add authorized Forge client mod files to `minecraft/mods` and the real bridge to `minecraft/client/start.sh` (executable).
+5. Deploy with `npm start`, run `npm run diagnose`, create a profile in the dashboard, then connect it.
+
+The Java Forge process is real and its output is monitored, but this repository cannot truthfully claim a Forge handshake, spawned world, framebuffer POV, or input delivery until the supplied bridge has actually performed those functions. Prismarine first-person rendering and controls remain available for vanilla/Mineflayer profiles. A Forge viewer stays explicitly unavailable until an actual framebuffer streaming adapter is supplied.
 
 ## Dashboard features
 

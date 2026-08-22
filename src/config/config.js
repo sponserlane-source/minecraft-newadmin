@@ -14,6 +14,7 @@ const config = {
     username: process.env.BOT_USERNAME || 'MyBot',
     auth: process.env.MINECRAFT_AUTH || 'offline',
     reconnectDelay: int('BOT_RECONNECT_DELAY', 5000),
+    autoReconnect: process.env.AUTO_RECONNECT !== 'false',
     maxReconnectAttempts: int('MAX_RECONNECT_ATTEMPTS', 5),
     loader: (process.env.MINECRAFT_LOADER || 'vanilla').toLowerCase(),
     forgeVersion: process.env.FORGE_VERSION || '',
@@ -34,8 +35,12 @@ const config = {
     password: process.env.DASHBOARD_PASSWORD || '12345'
   },
   viewer: {
-    port: int('VIEWER_PORT', 3007)
+    host: process.env.VIEWER_HOST || '0.0.0.0',
+    port: int('VIEWER_PORT', 3001),
+    renderPort: int('VIEWER_RENDER_PORT', int('VIEWER_PORT', 3001) + 1),
+    publicUrl: process.env.VIEWER_URL || ''
   },
+  storage: { profileFile: process.env.PROFILE_STORE || 'data/server-profiles.json' },
   logLevel: process.env.LOG_LEVEL || 'info'
 };
 

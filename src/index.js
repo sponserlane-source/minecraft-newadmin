@@ -4,10 +4,16 @@ const ViewerManager = require('./viewer/viewer');
 const BotManager = require('./bot/bot');
 const createHttpServer = require('./server/http');
 const createWebSocketServer = require('./server/websocket');
+const ProfileStore = require('./storage/ProfileStore');
+const ViewerServer = require('./viewer/ViewerServer');
+const initialProfile = { id: 'default', name: 'Default server', host: config.minecraft.host, port: config.minecraft.port, minecraftVersion: config.minecraft.version, loader: config.minecraft.loader, forgeVersion: config.minecraft.forgeVersion, botUsername: config.minecraft.username, autoReconnect: config.minecraft.autoReconnect, reconnectDelay: config.minecraft.reconnectDelay, modProfile: 'default', displayName: '' };
+const profiles = new ProfileStore(config.storage.profileFile, initialProfile);
 const viewer = new ViewerManager(config);
 const botManager = new BotManager(config, viewer);
-const server = createHttpServer(config, botManager, viewer);
+const server = createHttpServer(config, botManager, viewer, profiles);
 createWebSocketServer(server, config, botManager);
+const viewerServer = new ViewerServer(config, botManager, viewer);
+viewerServer.listen();
 server.listen(config.web.port, config.web.host, () => logger.info(`Dashboard listening on http://${config.web.host}:${config.web.port}`));
-async function shutdown(signal) { logger.info(`Received ${signal}; shutting down.`); botManager.shutdown(); server.close(() => process.exit(0)); setTimeout(() => process.exit(0), 3000).unref(); }
+async function shutdown(signal) { logger.info(`Received ${signal}; shutting down.`); botManager.shutdown(); viewerServer.close(); server.close(() => process.exit(0)); setTimeout(() => process.exit(0), 3000).unref(); }
 process.on('SIGINT', shutdown); process.on('SIGTERM', shutdown); process.on('uncaughtException', (e) => logger.error('Uncaught exception.', { error: e.message })); process.on('unhandledRejection', (e) => logger.error('Unhandled rejection.', { error: e?.message || String(e) }));

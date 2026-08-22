@@ -8,6 +8,7 @@ const InventoryController = require('./inventory');
 const PvpController = require('./pvp');
 const { buildStatus } = require('./status');
 const ForgeClientManager = require('./ForgeClientManager');
+const InputManager = require('../controls/InputManager');
 
 class BotManager extends EventEmitter {
   constructor(config, viewer) {
@@ -33,6 +34,7 @@ class BotManager extends EventEmitter {
     this.chat = new ChatController(() => this.bot);
     this.inventory = new InventoryController(() => this.bot);
     this.pvp = new PvpController(() => this.bot, (status) => this.emit('pvp_status', status));
+    this.input = new InputManager(this);
   }
 
   setState(state, error) {
@@ -135,7 +137,7 @@ class BotManager extends EventEmitter {
 
   handleEnd(reason) {
     logger.warn('Bot disconnected.', { reason });
-    this.movement.stopAllControls();
+    this.input.releaseAll();
     this.pvp.stop();
     clearInterval(this.statusTimer);
     this.viewer.stop();
@@ -152,7 +154,7 @@ class BotManager extends EventEmitter {
   scheduleReconnect(message) {
     if (this.reconnectTimer) return;
     this.reconnectAttempts += 1;
-    if (this.reconnectAttempts > this.config.minecraft.maxReconnectAttempts) {
+    if (!this.lastConnectOptions.autoReconnect || this.reconnectAttempts > this.config.minecraft.maxReconnectAttempts) {
       this.setState('error', 'Connection failed repeatedly. Check server version and configuration.');
       return;
     }
@@ -168,7 +170,7 @@ class BotManager extends EventEmitter {
     this.manualDisconnect = true;
     clearTimeout(this.reconnectTimer);
     this.reconnectTimer = null;
-    this.movement.stopAllControls();
+    this.input.releaseAll();
     this.pvp.stop();
 
     if (this.lastConnectOptions.loader === 'forge') this.forge.stop(this.lastConnectOptions);
@@ -177,7 +179,7 @@ class BotManager extends EventEmitter {
   }
 
   stopAll() {
-    this.movement.stopAllControls();
+    this.input.releaseAll();
     this.pvp.stop();
     this.emitStatus();
   }
@@ -185,6 +187,15 @@ class BotManager extends EventEmitter {
   shutdown() {
     this.manualDisconnect = true;
     this.disconnect();
+  }
+
+  isForge() { return this.lastConnectOptions.loader === 'forge'; }
+  async lookRelative(dx, dy) {
+    if (!Number.isFinite(dx) || !Number.isFinite(dy) || Math.abs(dx) > 500 || Math.abs(dy) > 500) throw new Error('Invalid camera movement.');
+    if (this.isForge()) return this.forge.lookRelative(dx, dy);
+    const entity = this.bot?.entity;
+    if (!entity) throw new Error('Bot is not online.');
+    return this.camera.look((entity.yaw || 0) - dx * 0.004, (entity.pitch || 0) - dy * 0.004);
   }
 }
 

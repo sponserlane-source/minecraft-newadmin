@@ -76,7 +76,7 @@ function createWebSocketServer(server, config, botManager) {
       try {
         if (msg.type === 'connect_bot') botManager.connect(valid.options);
         if (msg.type === 'disconnect_bot') botManager.disconnect();
-        if (msg.type === 'control') botManager.movement.setControl(msg.action, msg.pressed);
+        if (msg.type === 'control') botManager.input.set(msg.action, msg.pressed);
         if (msg.type === 'camera') await botManager.camera.look(msg.yaw, msg.pitch);
         if (msg.type === 'chat') {
           const sent = botManager.chat.send(msg.message);

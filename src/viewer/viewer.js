@@ -6,7 +6,7 @@ class ViewerManager {
     this.config = config;
     this.active = false;
     this.bot = null;
-    this.proxy = httpProxy.createProxyServer({ target: `http://127.0.0.1:${config.viewer.port}` });
+    this.proxy = httpProxy.createProxyServer({ target: `http://127.0.0.1:${config.viewer.renderPort}` });
     this.proxy.on('error', (error, request, response) => {
       logger.warn('Viewer proxy unavailable.', { error: error.message });
       if (response && !response.headersSent) response.writeHead(503, { 'content-type': 'text/plain' });
@@ -18,10 +18,10 @@ class ViewerManager {
     if (this.active || !bot) return;
     try {
       const { mineflayer: viewer } = require('prismarine-viewer');
-      viewer(bot, { port: this.config.viewer.port, prefix: '/pov', firstPerson: true });
+      viewer(bot, { port: this.config.viewer.renderPort, prefix: '/pov', firstPerson: true });
       this.bot = bot;
       this.active = true;
-      logger.info(`Prismarine viewer listening on ${this.config.viewer.port}`);
+      logger.info(`Prismarine viewer listening on ${this.config.viewer.renderPort}`);
     } catch (error) { logger.error('Viewer failed to start.', { error: error.message }); }
   }
 
