@@ -2,6 +2,7 @@ const EventEmitter = require('events');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { runtimeReport, FORGE_VERSION, MC_VERSION } = require('../forge/runtime');
 
 const FORGE_REQUIRED = 'This server has mods that require Forge to be installed on the client.';
 
@@ -48,33 +49,40 @@ class ForgeClientManager extends EventEmitter {
     if (this.process) return this.status;
     const forge = { ...this.config, forgeVersion: profile.forgeVersion || this.config.forgeVersion, modDirectory: profile.modDirectory || this.config.modDirectory };
     const minecraftVersion = profile.minecraftVersion || profile.version;
-    if (minecraftVersion !== '1.20.1') {
+    if (minecraftVersion !== MC_VERSION) {
       this.emitStatus('ERROR', { diagnostic: 'MINECRAFT_VERSION_MISMATCH' });
       return this.status;
     }
-    if (!forge.forgeVersion) {
+    if (!FORGE_VERSION.test(forge.forgeVersion)) {
       this.emitStatus('ERROR', { diagnostic: 'FORGE_VERSION_MISMATCH', message: 'Forge 47.x version is required.' });
-      return this.status;
-    }
-    if ((profile.auth || 'offline') !== 'offline') {
-      this.emitStatus('ERROR', { diagnostic: 'AUTHENTICATION_FAILED', message: 'Forge profiles in this deployment are restricted to offline-mode authentication.' });
       return this.status;
     }
     this.emitStatus('STARTING', { diagnostic: null, minecraftVersion, forgeVersion: forge.forgeVersion });
     const java = await this.verifyJava();
     if (!java.ok) {
-      this.emitStatus('ERROR', { diagnostic: 'JAVA_NOT_FOUND', message: 'Java 17 is required for Forge 1.20.1.' });
+      this.emitStatus('ERROR', { diagnostic: 'JAVA_RUNTIME_MISSING', message: 'Java 17 is required for Forge 1.20.1.' });
+      return this.status;
+    }
+    if (!/version\s+"17(?:\.|\")/.test(java.output)) {
+      this.emitStatus('ERROR', { diagnostic: 'JAVA_VERSION_MISMATCH', message: `Java 17 is required; detected: ${java.output.split('\n')[0]}` });
       return this.status;
     }
     const modFiles = this.getModFiles(forge.modDirectory);
     this.emitStatus('LOADING', { java: java.output, clientMods: modFiles.length, modFiles, modDirectory: forge.modDirectory });
+    const runtime = runtimeReport(forge, { minecraftVersion, forgeVersion: forge.forgeVersion, modDirectory: forge.modDirectory });
+    if (!runtime.ok) {
+      const issue = runtime.missing[0];
+      this.emitStatus('ERROR', { diagnostic: issue.code, message: `${issue.code}: ${issue.path}. ${issue.help}` });
+      return this.status;
+    }
     if (!fs.existsSync(this.config.clientCommand)) {
       this.emitStatus('ERROR', { diagnostic: 'FORGE_CLIENT_RUNTIME_MISSING', message: `Forge launcher script not found: ${this.config.clientCommand}` });
       return this.status;
     }
-    const environment = { ...process.env, MINECRAFT_HOST: profile.host, MINECRAFT_PORT: String(profile.port), MINECRAFT_VERSION: minecraftVersion, FORGE_VERSION: forge.forgeVersion, MOD_DIRECTORY: path.resolve(forge.modDirectory), BOT_USERNAME: profile.botUsername || profile.username, MINECRAFT_AUTH: profile.auth || 'offline' };
+    const environment = { ...process.env, MINECRAFT_HOST: profile.host, MINECRAFT_PORT: String(profile.port), MINECRAFT_VERSION: minecraftVersion, FORGE_VERSION: forge.forgeVersion, MINECRAFT_HOME: forge.minecraftHome, MINECRAFT_CLIENT_HOME: forge.clientHome, FORGE_HOME: forge.forgeHome, MOD_DIRECTORY: path.resolve(forge.modDirectory), BOT_USERNAME: profile.botUsername || profile.username, MINECRAFT_AUTH: profile.auth || 'offline', MINECRAFT_CLIENT_LAUNCHER: forge.clientLauncher };
     this.emitStatus('CONNECTING');
     this.process = spawn(this.config.clientCommand, [], { env: environment, stdio: ['pipe', 'pipe', 'pipe'] });
+    this.emitStatus('CONNECTING', { pid: this.process.pid });
     const consume = (chunk) => this.consumeOutput(chunk.toString());
     this.process.stdout.on('data', consume);
     this.process.stderr.on('data', consume);
@@ -88,6 +96,16 @@ class ForgeClientManager extends EventEmitter {
   }
 
   consumeOutput(text) {
+    for (const line of text.split('\n').filter(Boolean)) {
+      try {
+        const event = JSON.parse(line);
+        if (event && typeof event === 'object' && event.type) {
+          if (event.type === 'status') this.emitStatus(event.state || 'CONNECTED', event.data || {});
+          this.emit('bridge_event', event);
+          continue;
+        }
+      } catch { /* non-JSON client output is logged below */ }
+    }
     const diagnostic = diagnose(text);
     if (diagnostic) this.emitStatus('KICKED', { diagnostic, kickMessage: text.trim() });
     else if (/forge.*handshake|handshake.*forge/i.test(text)) this.emitStatus('FORGE_HANDSHAKE');
@@ -96,7 +114,7 @@ class ForgeClientManager extends EventEmitter {
     this.emit('log', text.trim());
   }
 
-  stop() { if (!this.process) return this.emitStatus('OFFLINE'); this.emitStatus('STOPPING'); this.process.kill('SIGTERM'); }
+  stop() { if (!this.process) return this.emitStatus('OFFLINE'); this.emitStatus('STOPPING'); const process = this.process; process.kill('SIGTERM'); setTimeout(() => { if (this.process === process && !process.killed) process.kill('SIGKILL'); }, 5000).unref(); }
   async restart(profile) { this.stop(); await new Promise((resolve) => setTimeout(resolve, 150)); return this.start(profile); }
   getStatus() { return { ...this.status }; }
   getProcess() { return this.process; }

@@ -1,161 +1,47 @@
 # Minecraft Bot Control Dashboard
 
-A Node.js web application for connecting a Mineflayer bot to a Minecraft Java Edition server, viewing a live Prismarine-rendered first-person POV, and controlling movement, camera, chat, read-only inventory, and a manual PvP target lock from a browser.
+This existing dashboard controls normal Mineflayer sessions and can supervise a **user-supplied, legitimate** Forge 1.20.1 client bridge. It never downloads an unofficial Minecraft runtime, bypasses Microsoft authentication, fabricates Forge packets, or pretends that a Forge client has a POV when the supplied bridge has not provided one.
 
-This project is intended for servers you own or are explicitly allowed to use. It does not bypass authentication, anti-cheat, CAPTCHA, server permissions, or access controls. The bot connects normally using the host, port, username, version, and auth mode you provide in the dashboard or `.env`.
+## Required Forge runtime
 
-## Requirements
+The container creates writable `minecraft/mods`, `minecraft/config`, and `minecraft/logs` automatically. Mount a persistent volume at `minecraft` and supply your licensed runtime and bridge in this layout:
 
-- Node.js 20 or newer
-- npm
-- A Minecraft Java Edition server you own or are authorized to use
-- A server version supported by Mineflayer and Prismarine packages
-- Java 17 when using a Forge 1.20.1 profile
+```text
+minecraft/
+├── client/
+│   ├── start.sh                         # executable genuine bridge (you provide)
+│   ├── versions/1.20.1/1.20.1.json
+│   ├── versions/1.20.1/1.20.1.jar
+│   ├── libraries/
+│   └── assets/objects/
+├── forge/                               # Forge 1.20.1 47.x runtime JAR(s)
+├── mods/                                # place Forge-compatible client .jar files here
+├── config/
+└── logs/
+```
 
-## Forge 1.20.1 compatibility
+`minecraft/client/start.sh` is not a placeholder supplied by this repository. It must launch your actual Forge 1.20.1 runtime, use the exported server/authentication variables, consume newline-delimited JSON controls on stdin (`chat`, `move`, `look`, `jump`, `attack`, `useItem`), and emit newline-delimited JSON telemetry on stdout. Supported bridge events are `{ "type":"status", "state":"CONNECTED", "data": {...} }`; other output is logged. This explicit boundary prevents a shell-script simulation of a Minecraft client.
 
-Mineflayer is a protocol bot, not a Java Forge client, and cannot complete Forge mod-loader negotiation. Forge profiles (`loader: "forge"`) use a separate Forge process adapter. It does not fake packets, mod lists, Forge identity, or authentication. For offline-mode Forge profiles, the configured dashboard bot name is passed to the fixed `scripts/start-forge-client.sh` command as `BOT_USERNAME`; no Microsoft authentication is requested. The script passes the dashboard-selected host, port, Minecraft version, Forge version, and mod directory to a real deployment-installed Forge client bridge.
+Forge profiles are strictly Minecraft `1.20.1` and Forge `47.x.x`; Java must be 17. Microsoft authentication is passed to a bridge as `MINECRAFT_AUTH=microsoft`, never replaced or bypassed.
 
-Official Forge provides a graphical client profile; it does **not** provide a generic headless gameplay client. This repository therefore reports a missing runtime/bridge rather than pretending the Forge installer alone is a headless client. Install the actual client runtime plus its Forge-compatible bridge at `minecraft/client` (`version.json` and executable `start.sh`). Mineflayer controls and Prismarine POV remain available for Mineflayer sessions; Forge profiles report `FORGE_POV_UNAVAILABLE` unless that bridge adds a control/telemetry/stream implementation.
+## Configuration and Railway
 
-## Installation
+Set `DASHBOARD_PASSWORD` (required for a protected production dashboard), `WEB_PORT` or Railway `PORT`, `VIEWER_PORT`, and optionally `VIEWER_URL`. Set `MINECRAFT_HOME`, `MINECRAFT_CLIENT_HOME`, `FORGE_HOME`, and `MOD_DIRECTORY` when the persistent volume uses a non-default location. `BOT_USERNAME`, host, port, authentication mode, loader, reconnect policy, Forge version, and mod profile can be saved independently per dashboard server profile.
+
+Use two Railway public services/domains: one routes `WEB_PORT` (dashboard/API/WebSocket) and one routes `VIEWER_PORT` (full POV viewer). Set `VIEWER_URL` to the latter public URL. The image installs Node 20, Java 17, Canvas build libraries, and exposes both ports. Start it with:
 
 ```bash
-cd minecraft-bot-dashboard
-npm install
-cp .env.example .env
 npm start
 ```
 
-If this repository is already checked out at `/workspace/minecraft-bot`, run the commands from that directory.
+Before connecting a Forge profile, run:
 
-## Environment configuration
-
-Edit `.env` after copying `.env.example`:
-
-```env
-MINECRAFT_HOST=localhost
-MINECRAFT_PORT=25565
-MINECRAFT_VERSION=1.20.4
-BOT_USERNAME=MyBot
-MINECRAFT_AUTH=offline
-WEB_HOST=0.0.0.0
-WEB_PORT=3000
-VIEWER_PORT=3007
-BOT_RECONNECT_DELAY=5000
-DASHBOARD_PASSWORD=12345
-LOG_LEVEL=info
-MINECRAFT_LOADER=vanilla
-FORGE_VERSION=47.3.0
-MINECRAFT_HOME=minecraft
-FORGE_HOME=minecraft/forge
-MOD_DIRECTORY=minecraft/mods
-JAVA_PATH=java
-MAX_RECONNECT_ATTEMPTS=5
-# Optional override; defaults to scripts/start-forge-client.sh.
-# FORGE_CLIENT_COMMAND=/app/scripts/start-forge-client.sh
-MINECRAFT_CLIENT_HOME=minecraft
-MINECRAFT_CLIENT_LAUNCHER=minecraft/client/start.sh
+```bash
+npm run diagnose:forge
 ```
 
-`DASHBOARD_PASSWORD` defaults to `12345` in this project. Change it before exposing the dashboard beyond your own trusted network.
+The diagnostic reports Java, all exact runtime paths, detected Forge version, bridge availability, installed mod filenames, Canvas, Prismarine Viewer, and both ports. Missing components include a specific error code, exact path, and corrective action.
 
-Use `MINECRAFT_AUTH=microsoft` only when your server requires Microsoft authentication and the installed Mineflayer version supports that flow. This application never attempts to bypass authentication.
+## Viewer limitation
 
-## Running locally
-
-- `npm start` starts the production server.
-- `npm run dev` starts the server with nodemon.
-- `npm run check` performs JavaScript syntax checks.
-
-Open `http://localhost:3000`, enter the dashboard password, type the Minecraft server IP/host, port, bot name, version, and auth mode, then click **Connect**. The embedded Prismarine POV is proxied through the dashboard; the separate fullscreen viewer uses `VIEWER_PORT`.
-
-## Railway deployment
-
-Deploy using the included Dockerfile and Railway's start command `npm start`. The image contains Node 20, Java 17, and Canvas build/runtime libraries. The dashboard binds to Railway’s injected `PORT` (or `WEB_PORT`) and the fullscreen viewer independently binds to `VIEWER_PORT` (default `3001`) on `0.0.0.0`. Configure a second Railway public TCP/HTTP service for `VIEWER_PORT`; Railway does not expose it merely because the environment variable is set. Set `VIEWER_URL` to that public viewer URL so the dashboard's **Open Fullscreen POV** button works behind Railway routing.
-
-For a Forge profile, first run `MINECRAFT_VERSION=1.20.1 npm run install:minecraft-runtime`. It resolves the official Mojang version manifest and downloads its metadata, client JAR, libraries, and assets into `minecraft`; it must only be used by a licensed Java Edition account holder. Then set the selected profile's Forge 47.x version and run `FORGE_VERSION=47.3.0 npm run install:forge`, which invokes Forge's official installer. Place only the server-required, compatible client-mod JARs in `minecraft/mods` (they are deliberately not downloaded by this project). Finally install a genuine deployment-owned client control/stream bridge at `minecraft/client/start.sh`. The launcher validates every runtime component and reports `FORGE_POV_UNAVAILABLE` rather than fabricating a Java-client video stream. Run `npm run diagnose` before deployment.
-
-Server profiles are persisted in `data/server-profiles.json` (set `PROFILE_STORE` to persistent Railway storage). Their Minecraft username is separate from their optional dashboard display name. Use `GET/POST /api/servers`, `PUT/DELETE /api/servers/:id`, `POST /api/servers/:id/select`, and `POST /api/servers/:id/{connect,disconnect,reconnect}` to manage them; no server address is embedded in source code.
-
-### Exact deployment checklist
-
-1. Add a persistent Railway volume and set `PROFILE_STORE` and `MINECRAFT_HOME` inside it if profiles/runtime must survive deploys.
-2. Set `PORT`, `VIEWER_PORT`, `VIEWER_URL`, `DASHBOARD_PASSWORD`, and `FORGE_VERSION`; expose both `PORT` and `VIEWER_PORT` in Railway networking.
-3. During image preparation run `npm ci`, `npm run install:minecraft-runtime`, and `npm run install:forge` with the desired Forge version.
-4. Add authorized Forge client mod files to `minecraft/mods` and the real bridge to `minecraft/client/start.sh` (executable).
-5. Deploy with `npm start`, run `npm run diagnose`, create a profile in the dashboard, then connect it.
-
-The Java Forge process is real and its output is monitored, but this repository cannot truthfully claim a Forge handshake, spawned world, framebuffer POV, or input delivery until the supplied bridge has actually performed those functions. Prismarine first-person rendering and controls remain available for vanilla/Mineflayer profiles. A Forge viewer stays explicitly unavailable until an actual framebuffer streaming adapter is supplied.
-
-## Dashboard features
-
-- Connect and disconnect the bot through REST endpoints.
-- Type the server IP/host and port directly on the website before connecting.
-- Rename the bot from the website before each connection by changing the bot name field.
-- Live WebSocket status updates for online state, health, food, coordinates, yaw, pitch, dimension, game mode, and ping.
-- First-person Prismarine 3D renderer that follows the bot session. It is a browser world renderer, not a pixel-perfect vanilla client video capture.
-- Keyboard and touch movement controls using press/release semantics: W/A/S/D, Space, Shift, and Ctrl.
-- Mouse and button camera controls with throttled WebSocket updates.
-- Emergency **STOP EVERYTHING** button that releases all movement controls and disables PvP target lock.
-- Chat panel for sending normal Minecraft chat and reading incoming messages.
-- Read-only inventory viewer showing slot, item name, count, and durability information when available.
-- Manual PvP target lock: the bot can lock its camera onto a nearby player and perform one range-limited manual attack when you press **Attack Once**. It does not provide anti-cheat bypasses or automatic command execution.
-- Dashboard password protection with `DASHBOARD_PASSWORD=12345` by default.
-
-## REST API
-
-- `GET /health`
-- `GET /api/status`
-- `GET /api/config` exposes only non-secret dashboard configuration
-- `POST /api/bot/connect` accepts `host`, `port`, `username`, `version`, and `auth`
-- `POST /api/bot/disconnect`
-- `POST /api/bot/stop`
-- `GET /api/bot/inventory`
-- `GET /api/bot/pvp`
-- `POST /api/bot/pvp/lock`
-- `POST /api/bot/pvp/attack`
-
-When `DASHBOARD_PASSWORD` is set, protected endpoints require the `x-dashboard-password` header.
-
-## WebSocket protocol
-
-Client messages: `auth`, `connect_bot`, `disconnect_bot`, `control`, `camera`, `chat`, `stop_all`, `request_status`, `request_inventory`, `pvp_lock`, `pvp_attack`, and `pvp_request_targets`.
-
-Server messages: `connection_state`, `bot_status`, `bot_position`, `bot_chat`, `bot_inventory`, `pvp_status`, `pvp_attack`, and `error`.
-
-Incoming messages are validated, unknown commands are rejected, chat length is limited, connect options are allowlisted by shape, and basic WebSocket rate limiting is enforced.
-
-## Troubleshooting
-
-- **Server unavailable**: verify the host/port typed in the dashboard, firewall rules, and that the Minecraft server is running.
-- **Version mismatch**: set the dashboard version field to the server version, for example `1.20.4`.
-- **Authentication fails**: use the correct Mineflayer auth mode for your server. Online-mode public servers generally require Microsoft authentication.
-- **POV does not load**: verify the bot has spawned and that the Railway service is running as a long-lived Node process. The viewer starts only after the bot spawns.
-- **Controls do nothing**: click the POV/control area and confirm the bot is online. If a dashboard password is configured, authenticate by entering it before connecting.
-
-## Security notes
-
-The app is intended for personal or trusted use. It never exposes `.env` contents or Minecraft credentials, does not execute shell commands from the browser, does not use `eval()`, escapes chat before rendering, validates server connection input, and does not provide arbitrary Minecraft command execution.
-
-## Project structure
-
-```text
-src/config        Environment loading
-src/bot           Connection, movement, camera, chat, inventory, PvP lock, status modules
-src/server        Express routes and WebSocket protocol
-src/viewer        Isolated Prismarine viewer integration
-src/utils         Logging and validation helpers
-public            Vanilla HTML/CSS/JS dashboard
-logs              Runtime log location placeholder
-```
-
-## Future upgrade path
-
-The viewer module is isolated so a later pixel-perfect architecture can replace it without rewriting dashboard controls:
-
-```text
-Minecraft Client -> Virtual Display -> Video Encoder -> WebRTC -> Browser
-```
-
-The modular bot manager also leaves room for future features such as pathfinding, follow player, waypoints, multiple bot profiles, player/entity lists, permissions, recording, screenshots, and strictly allowlisted command tooling.
+Prismarine Viewer renders a Mineflayer protocol session using real server chunk/entity data. A Java Forge client is not directly renderable by Prismarine Viewer. The Forge bridge must provide a real world/framebuffer stream and telemetry for a Forge POV; until it does, the dashboard explicitly reports Forge POV unavailable rather than showing fake terrain, hearts, inventory, or world state.

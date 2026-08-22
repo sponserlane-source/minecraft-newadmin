@@ -12,6 +12,7 @@ const allowedTypes = new Set([
   'pvp_lock',
   'pvp_attack',
   'pvp_request_targets'
+  ,'pointer'
 ]);
 
 const hostnamePattern = /^(?=.{1,253}$)(localhost|([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?|\d{1,3}(?:\.\d{1,3}){3})$/;
@@ -51,7 +52,7 @@ function validateConnectOptions(input = {}) {
 
   if (input.version !== undefined) {
     const version = String(input.version).trim();
-    if (!versionPattern.test(version)) errors.push('Minecraft version must look like 1.20.4.');
+    if (version !== '1.20.1') errors.push('Minecraft version must be exactly 1.20.1.');
     else options.version = version;
   }
 
@@ -85,14 +86,14 @@ function validateConnectOptions(input = {}) {
 function validateProfile(input = {}) {
   const result = validateConnectOptions({
     host: input.host, port: input.port, username: input.botUsername, version: input.minecraftVersion,
-    loader: input.loader, forgeVersion: input.forgeVersion
+    loader: input.loader, forgeVersion: input.forgeVersion, auth: input.auth
   });
   const name = String(input.name || '').trim();
   if (!name || name.length > 80) return { ok: false, error: 'Profile name must be 1-80 characters.' };
   if (!result.ok) return result;
   const reconnectDelay = Number(input.reconnectDelay ?? 5000);
   if (![5000, 10000, 20000, 30000, 60000].includes(reconnectDelay)) return { ok: false, error: 'Reconnect delay must be 5, 10, 20, 30, or 60 seconds.' };
-  return { ok: true, profile: { name, host: result.options.host, port: result.options.port, minecraftVersion: result.options.version, loader: result.options.loader || 'vanilla', forgeVersion: result.options.forgeVersion || '', botUsername: result.options.username, autoReconnect: Boolean(input.autoReconnect), reconnectDelay, modProfile: String(input.modProfile || 'default').trim() || 'default', displayName: String(input.displayName || '').trim() } };
+  return { ok: true, profile: { name, host: result.options.host, port: result.options.port, minecraftVersion: result.options.version, loader: result.options.loader || 'vanilla', forgeVersion: result.options.forgeVersion || '', botUsername: result.options.username, auth: result.options.auth || 'offline', autoReconnect: Boolean(input.autoReconnect), reconnectDelay, modProfile: String(input.modProfile || 'default').trim() || 'default', displayName: String(input.displayName || '').trim() } };
 }
 
 function validateWsMessage(message) {
@@ -118,6 +119,7 @@ function validateWsMessage(message) {
       return { ok: false, error: 'Camera pitch out of range.' };
     }
   }
+  if (message.type === 'pointer' && !['left', 'right'].includes(message.button)) return { ok: false, error: 'Invalid pointer command.' };
 
   if (message.type === 'chat') {
     if (typeof message.message !== 'string' || message.message.trim().length === 0 || message.message.length > 256) {

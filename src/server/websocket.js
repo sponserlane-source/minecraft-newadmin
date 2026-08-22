@@ -26,6 +26,7 @@ function createWebSocketServer(server, config, botManager) {
     'pvp_lock',
     'pvp_attack',
     'pvp_request_targets'
+    ,'pointer'
   ]);
 
   wss.on('connection', (ws) => {
@@ -77,12 +78,13 @@ function createWebSocketServer(server, config, botManager) {
         if (msg.type === 'connect_bot') botManager.connect(valid.options);
         if (msg.type === 'disconnect_bot') botManager.disconnect();
         if (msg.type === 'control') botManager.input.set(msg.action, msg.pressed);
-        if (msg.type === 'camera') await botManager.camera.look(msg.yaw, msg.pitch);
+        if (msg.type === 'camera') await botManager.look(msg.yaw, msg.pitch);
         if (msg.type === 'chat') {
           const sent = botManager.chat.send(msg.message);
           broadcast('bot_chat', { kind: 'sent', message: sent, at: Date.now() });
         }
         if (msg.type === 'stop_all') botManager.stopAll();
+        if (msg.type === 'pointer') botManager.input.click(msg.button);
         if (msg.type === 'request_status') send(ws, 'bot_status', buildStatus(botManager.state, botManager.bot, botManager.safeConnectOptions(), botManager.forge.status));
         if (msg.type === 'request_inventory') send(ws, 'bot_inventory', botManager.inventory.list());
         if (msg.type === 'pvp_lock') broadcast('pvp_status', botManager.pvp.setLock(msg.enabled, msg.targetUsername));

@@ -9,7 +9,8 @@
     "check": "node --check src/index.js && find src public/js -name '*.js' -print0 | xargs -0 -n1 node --check",
     "install:forge": "node scripts/install-forge.js",
     "install:minecraft-runtime": "node scripts/install-minecraft-runtime.js",
-    "diagnose": "node scripts/diagnose.js"
+    "diagnose": "node scripts/diagnose.js",
+    "diagnose:forge": "node scripts/diagnose.js"
   },
   "engines": {
     "node": ">=20"

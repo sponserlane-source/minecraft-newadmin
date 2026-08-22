@@ -10,7 +10,7 @@ const config = {
   minecraft: {
     host: process.env.MINECRAFT_HOST || 'localhost',
     port: int('MINECRAFT_PORT', 25565),
-    version: process.env.MINECRAFT_VERSION || '1.20.4',
+    version: process.env.MINECRAFT_VERSION || '1.20.1',
     username: process.env.BOT_USERNAME || 'MyBot',
     auth: process.env.MINECRAFT_AUTH || 'offline',
     reconnectDelay: int('BOT_RECONNECT_DELAY', 5000),
@@ -27,12 +27,13 @@ const config = {
     forgeHome: process.env.FORGE_HOME || 'minecraft/forge',
     forgeVersion: process.env.FORGE_VERSION || '',
     modDirectory: process.env.MOD_DIRECTORY || 'minecraft/mods',
-    clientCommand: process.env.FORGE_CLIENT_COMMAND || 'scripts/start-forge-client.sh'
+    clientCommand: process.env.FORGE_CLIENT_COMMAND || 'scripts/start-forge-client.sh',
+    clientLauncher: process.env.MINECRAFT_CLIENT_LAUNCHER || 'minecraft/client/start.sh'
   },
   web: {
     host: process.env.WEB_HOST || '0.0.0.0',
     port: int('WEB_PORT', int('PORT', 3000)),
-    password: process.env.DASHBOARD_PASSWORD || '12345'
+    password: process.env.DASHBOARD_PASSWORD || ''
   },
   viewer: {
     host: process.env.VIEWER_HOST || '0.0.0.0',
