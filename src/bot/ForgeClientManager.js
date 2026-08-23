@@ -121,7 +121,7 @@ class ForgeClientManager extends EventEmitter {
 
   sendCommand(command) {
     if (!this.process?.stdin?.writable) throw new Error('Forge control bridge is not available.');
-    const allowed = new Set(['chat', 'move', 'look', 'jump', 'attack', 'useItem']);
+    const allowed = new Set(['chat', 'move', 'look', 'jump', 'attack', 'useItem', 'selectHotbar']);
     if (!command || !allowed.has(command.type)) throw new Error('Unsupported Forge bridge command.');
     this.process.stdin.write(`${JSON.stringify(command)}\n`);
   }
@@ -132,6 +132,7 @@ class ForgeClientManager extends EventEmitter {
   jump(pressed) { return this.sendCommand({ type: 'jump', pressed: Boolean(pressed) }); }
   attack() { return this.sendCommand({ type: 'attack' }); }
   useItem() { return this.sendCommand({ type: 'useItem' }); }
+  selectHotbar(slot) { return this.sendCommand({ type: 'selectHotbar', slot }); }
 }
 
 module.exports = ForgeClientManager;

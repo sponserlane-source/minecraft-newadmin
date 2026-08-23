@@ -6,8 +6,14 @@ const createHttpServer = require('./server/http');
 const createWebSocketServer = require('./server/websocket');
 const ProfileStore = require('./storage/ProfileStore');
 const ViewerServer = require('./viewer/ViewerServer');
-const { ensureDirectories } = require('./forge/runtime');
+const { ensureDirectories, runtimeReport } = require('./forge/runtime');
 ensureDirectories(config.forge);
+const forgeRuntime = runtimeReport(config.forge, config.minecraft);
+logger.info('Forge runtime startup report', {
+  java: forgeRuntime.java.version || 'missing', minecraft: forgeRuntime.version,
+  forge: forgeRuntime.detectedForge || forgeRuntime.forgeVersion || 'missing', mods: forgeRuntime.modFiles,
+  missing: forgeRuntime.missing.map((item) => `${item.code}: ${item.path}`)
+});
 const initialProfile = { id: 'default', name: 'Default server', host: config.minecraft.host, port: config.minecraft.port, minecraftVersion: config.minecraft.version, loader: config.minecraft.loader, forgeVersion: config.minecraft.forgeVersion, botUsername: config.minecraft.username, auth: config.minecraft.auth, autoReconnect: config.minecraft.autoReconnect, reconnectDelay: config.minecraft.reconnectDelay, modProfile: 'default', displayName: '' };
 const profiles = new ProfileStore(config.storage.profileFile, initialProfile);
 const viewer = new ViewerManager(config);

@@ -132,8 +132,21 @@ class BotManager extends EventEmitter {
     bot.once('kicked', (reason) => {
       logger.warn('Bot kicked.', { reason: String(reason) });
       this.emit('bot_chat', { kind: 'system', message: `Kicked: ${String(reason)}`, at: Date.now() });
+      if (/mods? that require forge|forge to be installed on the client|forge required/i.test(String(reason))) this.startForgeForRequiredServer();
     });
     bot.once('end', (reason) => this.handleEnd(reason));
+  }
+
+  startForgeForRequiredServer() {
+    if (this.lastConnectOptions.loader === 'forge' || this.forge.getProcess()) return;
+    if (!this.config.forge.forgeVersion || !/^47\.\d+\.\d+$/.test(this.config.forge.forgeVersion)) {
+      this.setState('forge_required', 'FORGE REQUIRED: select/configure a Forge 47.x.x profile to join this server.');
+      return;
+    }
+    this.input.releaseAll();
+    this.lastConnectOptions = { ...this.lastConnectOptions, loader: 'forge', forgeVersion: this.config.forge.forgeVersion };
+    this.setState('forge_required', 'FORGE REQUIRED — Starting Forge 1.20.1…');
+    this.forge.start({ ...this.lastConnectOptions, botUsername: this.lastConnectOptions.username });
   }
 
   startStatusLoop() {
@@ -152,6 +165,7 @@ class BotManager extends EventEmitter {
     this.viewer.stop();
     this.bot = null;
 
+    if (this.forge.getProcess()) return;
     if (this.manualDisconnect) {
       this.setState('offline');
       return;
