@@ -1,0 +1,8 @@
+node_modules/
+.env
+data/
+minecraft/client/
+minecraft/forge/
+minecraft/mods/*.jar
+minecraft/config/
+minecraft/logs/

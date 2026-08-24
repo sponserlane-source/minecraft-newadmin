@@ -22,12 +22,21 @@ class BotManager extends EventEmitter {
     this.lastConnectOptions = { ...config.minecraft };
     this.statusTimer = null;
     this.reconnectAttempts = 0;
+    this.forgeTelemetry = null;
     this.forge = new ForgeClientManager(config.forge);
     this.forge.on('status', (status) => {
       this.emit('forge_status', status);
       this.setState(status.state.toLowerCase(), status.message || status.diagnostic);
     });
     this.forge.on('log', (message) => message && this.emit('bot_chat', { kind: 'system', message: `[Forge] ${message}`, at: Date.now() }));
+    this.forge.on('bridge_event', (event) => {
+      if (event.type === 'telemetry') {
+        this.forgeTelemetry = event.data || null;
+        if (Array.isArray(event.data?.inventory)) this.emit('bot_inventory', event.data.inventory);
+        this.emitStatus();
+      }
+      if (event.type === 'chat') this.emit('bot_chat', { kind: event.kind === 'bot' ? 'sent' : event.kind === 'server' ? 'server' : 'system', message: String(event.message || ''), at: Date.now() });
+    });
 
     this.movement = new MovementController(() => this.bot);
     this.camera = new CameraController(() => this.bot);
@@ -54,12 +63,12 @@ class BotManager extends EventEmitter {
   }
 
   emitStatus() {
-    this.emit('bot_status', buildStatus(this.state, this.bot, this.safeConnectOptions(), this.forge.status));
+    this.emit('bot_status', buildStatus(this.state, this.bot, this.safeConnectOptions(), this.forge.status, this.forgeTelemetry));
     this.emit('pvp_status', this.pvp.status());
   }
 
   emitInventory() {
-    this.emit('bot_inventory', this.inventory.list());
+    this.emit('bot_inventory', this.bot ? this.inventory.list() : (this.forgeTelemetry?.inventory || []));
   }
 
   connect(overrides = {}) {
@@ -123,8 +132,21 @@ class BotManager extends EventEmitter {
     bot.once('kicked', (reason) => {
       logger.warn('Bot kicked.', { reason: String(reason) });
       this.emit('bot_chat', { kind: 'system', message: `Kicked: ${String(reason)}`, at: Date.now() });
+      if (/mods? that require forge|forge to be installed on the client|forge required/i.test(String(reason))) this.startForgeForRequiredServer();
     });
     bot.once('end', (reason) => this.handleEnd(reason));
+  }
+
+  startForgeForRequiredServer() {
+    if (this.lastConnectOptions.loader === 'forge' || this.forge.getProcess()) return;
+    if (!this.config.forge.forgeVersion || !/^47\.\d+\.\d+$/.test(this.config.forge.forgeVersion)) {
+      this.setState('forge_required', 'FORGE REQUIRED: select/configure a Forge 47.x.x profile to join this server.');
+      return;
+    }
+    this.input.releaseAll();
+    this.lastConnectOptions = { ...this.lastConnectOptions, loader: 'forge', forgeVersion: this.config.forge.forgeVersion };
+    this.setState('forge_required', 'FORGE REQUIRED — Starting Forge 1.20.1…');
+    this.forge.start({ ...this.lastConnectOptions, botUsername: this.lastConnectOptions.username });
   }
 
   startStatusLoop() {
@@ -143,6 +165,7 @@ class BotManager extends EventEmitter {
     this.viewer.stop();
     this.bot = null;
 
+    if (this.forge.getProcess()) return;
     if (this.manualDisconnect) {
       this.setState('offline');
       return;
@@ -196,6 +219,10 @@ class BotManager extends EventEmitter {
     const entity = this.bot?.entity;
     if (!entity) throw new Error('Bot is not online.');
     return this.camera.look((entity.yaw || 0) - dx * 0.004, (entity.pitch || 0) - dy * 0.004);
+  }
+  async look(yaw, pitch) {
+    if (this.isForge()) return this.forge.look(yaw, pitch);
+    return this.camera.look(yaw, pitch);
   }
 }
 
